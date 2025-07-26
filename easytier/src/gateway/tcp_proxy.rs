@@ -711,13 +711,7 @@ impl<C: NatDstConnector> TcpProxy<C> {
         let is_loopback = Some(nat_entry.real_dst.ip())
             == global_ctx.get_ipv4().map(|ip| IpAddr::V4(ip.address()));
 
-        let nat_dst = if is_loopback {
-            format!("127.0.0.1:{}", nat_entry.real_dst.port())
-                .parse()
-                .unwrap()
-        } else {
-            nat_entry.real_dst
-        };
+        let nat_dst = nat_entry.real_dst;
 
         let _guard = if !is_loopback {
             Some(global_ctx.net_ns.guard())
