@@ -708,9 +708,10 @@ impl<C: NatDstConnector> TcpProxy<C> {
             tracing::warn!("set_nodelay failed, ignore it: {:?}", e);
         }
 
-        let nat_dst = if Some(nat_entry.real_dst.ip())
-            == global_ctx.get_ipv4().map(|ip| IpAddr::V4(ip.address()))
-        {
+        let is_loopback = Some(nat_entry.real_dst.ip())
+            == global_ctx.get_ipv4().map(|ip| IpAddr::V4(ip.address()));
+
+        let nat_dst = if is_loopback {
             format!("127.0.0.1:{}", nat_entry.real_dst.port())
                 .parse()
                 .unwrap()
@@ -718,7 +719,11 @@ impl<C: NatDstConnector> TcpProxy<C> {
             nat_entry.real_dst
         };
 
-        let _guard = global_ctx.net_ns.guard();
+        let _guard = if !is_loopback {
+            Some(global_ctx.net_ns.guard())
+        } else {
+            None
+        };
         let Ok(dst_tcp_stream) = connector.connect(nat_entry.src, nat_dst).await else {
             tracing::error!("connect to dst failed: {:?}", nat_entry);
             nat_entry.state.store(NatDstEntryState::Closed);
